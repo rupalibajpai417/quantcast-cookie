@@ -37,6 +37,28 @@ javac MostActiveCookie.java MostActiveCookieTest.java
 
 java MostActiveCookie -f cookie_log.csv -d 2018-12-09
 
+## Testing Approach
+
+Tests are written in plain Java without a build system due to network 
+constraints during development preventing JUnit 5 download. 
+
+The test class covers the following cases:
+- Single most active cookie
+- Tie between multiple cookies
+- High count tie
+- Empty file
+- No matching date
+- Date boundary
+- File not found
+
+In a production environment, these would be migrated to JUnit 5 with 
+Maven or Gradle for standardized test execution.
+
+To run tests:
+```
+javac MostActiveCookie.java MostActiveCookieTest.java
+java MostActiveCookieTest
+```
 
 **Run tests:**
 
