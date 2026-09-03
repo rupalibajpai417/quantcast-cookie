@@ -3,103 +3,133 @@ import java.util.*;
 
 /**
  * Tests for MostActiveCookie.
- * Covers: single winner, tie, no matching date, file not found.
+ * Covers: single winner, tie, high-count tie, empty file,
+ * no matching date, date boundary, file not found.
  */
 public class MostActiveCookieTest {
 
     public static void main(String[] args) throws IOException {
         testSingleMostActiveCookie();
         testTie();
+        testHighCountTie();
+        testEmptyFile();
         testNoMatchingDate();
+        testDateBoundary();
         testFileNotFound();
         System.out.println("All tests passed.");
     }
 
-    /**
-     * Tests that the single most active cookie is returned
-     * when one cookie appears more times than others on a given date.
-     */
+    // One cookie appears more than all others
     static void testSingleMostActiveCookie() throws IOException {
-        // Create a temporary CSV file with known test data
-        File tempFile = File.createTempFile("test", ".csv");
-        FileWriter fw = new FileWriter(tempFile);
-        fw.write("cookie,timestamp\n");
-        fw.write("AtY0laUfhglK3lC7,2018-12-09T14:19:00+00:00\n"); // appears twice
-        fw.write("AtY0laUfhglK3lC7,2018-12-09T10:13:00+00:00\n");
-        fw.write("SAZuXPGUrfbcn5UA,2018-12-09T07:25:00+00:00\n"); // appears once
-        fw.close();
-
+        File tempFile = createTempCsv(
+            "AtY0laUfhglK3lC7,2018-12-09T14:19:00+00:00",
+            "AtY0laUfhglK3lC7,2018-12-09T10:13:00+00:00",
+            "SAZuXPGUrfbcn5UA,2018-12-09T07:25:00+00:00"
+        );
         List<String> result = MostActiveCookie.findMostActiveCookies(
             tempFile.getAbsolutePath(), "2018-12-09"
         );
-
-        // Expect exactly one cookie returned
         assertEqual(1, result.size(), "testSingleMostActiveCookie - size");
-        // Expect it to be the cookie that appeared twice
         assertEqual("AtY0laUfhglK3lC7", result.get(0), "testSingleMostActiveCookie - cookie name");
     }
 
-    /**
-     * Tests that all cookies are returned when multiple cookies
-     * share the highest count on a given date.
-     */
+    // Two cookies appear the same number of times
     static void testTie() throws IOException {
-        // Create a temporary CSV file where two cookies appear once each
-        File tempFile = File.createTempFile("test", ".csv");
-        FileWriter fw = new FileWriter(tempFile);
-        fw.write("cookie,timestamp\n");
-        fw.write("AtY0laUfhglK3lC7,2018-12-08T14:19:00+00:00\n"); // appears once
-        fw.write("SAZuXPGUrfbcn5UA,2018-12-08T10:13:00+00:00\n"); // appears once
-        fw.close();
-
+        File tempFile = createTempCsv(
+            "AtY0laUfhglK3lC7,2018-12-08T14:19:00+00:00",
+            "SAZuXPGUrfbcn5UA,2018-12-08T10:13:00+00:00"
+        );
         List<String> result = MostActiveCookie.findMostActiveCookies(
             tempFile.getAbsolutePath(), "2018-12-08"
         );
-
-        // Expect both cookies to be returned
         assertEqual(2, result.size(), "testTie - size");
+        assertEqual(
+            Arrays.asList("AtY0laUfhglK3lC7", "SAZuXPGUrfbcn5UA"),
+            result,
+            "testTie - cookies"
+        );
     }
 
-    /**
-     * Tests that an empty list is returned when no cookies
-     * exist for the given date.
-     */
-    static void testNoMatchingDate() throws IOException {
-        // Create a temporary CSV file with data only for 2018-12-09
+    // Two cookies each appear multiple times and tie
+    static void testHighCountTie() throws IOException {
+        File tempFile = createTempCsv(
+            "AtY0laUfhglK3lC7,2018-12-09T14:19:00+00:00",
+            "AtY0laUfhglK3lC7,2018-12-09T12:00:00+00:00",
+            "AtY0laUfhglK3lC7,2018-12-09T10:00:00+00:00",
+            "SAZuXPGUrfbcn5UA,2018-12-09T09:00:00+00:00",
+            "SAZuXPGUrfbcn5UA,2018-12-09T08:00:00+00:00",
+            "SAZuXPGUrfbcn5UA,2018-12-09T07:00:00+00:00",
+            "fbcn5UAVanZf6UtG,2018-12-09T06:00:00+00:00"
+        );
+        List<String> result = MostActiveCookie.findMostActiveCookies(
+            tempFile.getAbsolutePath(), "2018-12-09"
+        );
+        assertEqual(2, result.size(), "testHighCountTie - size");
+        assertEqual(
+            Arrays.asList("AtY0laUfhglK3lC7", "SAZuXPGUrfbcn5UA"),
+            result,
+            "testHighCountTie - cookies"
+        );
+    }
+
+    // File has only the header, no data rows
+    static void testEmptyFile() throws IOException {
         File tempFile = File.createTempFile("test", ".csv");
         FileWriter fw = new FileWriter(tempFile);
         fw.write("cookie,timestamp\n");
-        fw.write("AtY0laUfhglK3lC7,2018-12-09T14:19:00+00:00\n");
         fw.close();
+        List<String> result = MostActiveCookie.findMostActiveCookies(
+            tempFile.getAbsolutePath(), "2018-12-09"
+        );
+        assertEqual(0, result.size(), "testEmptyFile - size");
+    }
 
-        // Query for a date that has no entries
+    // No cookies exist for the requested date
+    static void testNoMatchingDate() throws IOException {
+        File tempFile = createTempCsv(
+            "AtY0laUfhglK3lC7,2018-12-09T14:19:00+00:00"
+        );
         List<String> result = MostActiveCookie.findMostActiveCookies(
             tempFile.getAbsolutePath(), "2018-12-10"
         );
-
-        // Expect empty result
         assertEqual(0, result.size(), "testNoMatchingDate - size");
     }
 
-    /**
-     * Tests that an IOException is thrown when the file does not exist.
-     */
+    // Cookies near midnight should not cross date boundaries
+    static void testDateBoundary() throws IOException {
+        File tempFile = createTempCsv(
+            "AtY0laUfhglK3lC7,2018-12-10T00:00:00+00:00",
+            "SAZuXPGUrfbcn5UA,2018-12-09T23:59:59+00:00"
+        );
+        List<String> result = MostActiveCookie.findMostActiveCookies(
+            tempFile.getAbsolutePath(), "2018-12-09"
+        );
+        assertEqual(1, result.size(), "testDateBoundary - size");
+        assertEqual("SAZuXPGUrfbcn5UA", result.get(0), "testDateBoundary - cookie name");
+    }
+
+    // Reading a nonexistent file should throw IOException
     static void testFileNotFound() {
         try {
-            // Attempt to read a file that doesn't exist
             MostActiveCookie.findMostActiveCookies("nonexistent.csv", "2018-12-09");
-            // If no exception thrown, the test fails
             throw new RuntimeException("testFileNotFound FAILED: expected IOException");
         } catch (IOException e) {
-            // Expected — file not found throws IOException
             System.out.println("testFileNotFound PASSED.");
         }
     }
 
-    /**
-     * Helper method to assert equality between expected and actual values.
-     * Throws RuntimeException with a descriptive message if they don't match.
-     */
+    // Helper to create a temp CSV file with given data rows
+    static File createTempCsv(String... rows) throws IOException {
+        File tempFile = File.createTempFile("test", ".csv");
+        FileWriter fw = new FileWriter(tempFile);
+        fw.write("cookie,timestamp\n");
+        for (String row : rows) {
+            fw.write(row + "\n");
+        }
+        fw.close();
+        return tempFile;
+    }
+
     static void assertEqual(Object expected, Object actual, String testName) {
         if (!expected.equals(actual)) {
             throw new RuntimeException(
